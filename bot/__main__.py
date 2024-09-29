@@ -2,7 +2,7 @@ import os
 import logging
 from pyrogram import Client
 from pyrogram import enums
-from bot import APP_ID, API_HASH, BOT_TOKEN, DOWNLOAD_DIRECTORY
+from bot.config import APP_ID, API_HASH, BOT_TOKEN, DOWNLOAD_DIRECTORY
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
