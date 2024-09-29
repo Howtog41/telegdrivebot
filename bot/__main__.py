@@ -9,6 +9,7 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
 
+DOWNLOAD_DIRECTORY = "/path/to/download"  # Replace with your directory path
 
 if __name__ == "__main__":
     if not os.path.isdir(DOWNLOAD_DIRECTORY):
