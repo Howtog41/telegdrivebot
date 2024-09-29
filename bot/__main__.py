@@ -17,9 +17,9 @@ if __name__ == "__main__":
     plugins = dict(root="bot/plugins")
     app = Client(
         "G-DriveBot",
-        bot_token=BOT_TOKEN,
-        api_id=APP_ID,
-        api_hash=API_HASH,
+        bot_token=config.BOT_TOKEN,
+        api_id=config.APP_ID,
+        api_hash=config.API_HASH,
         plugins=plugins,
         parse_mode=enums.ParseMode.MARKDOWN,
         workdir=DOWNLOAD_DIRECTORY,
