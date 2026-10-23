@@ -713,26 +713,26 @@ async def send_next_poll(bot: Bot, chat_id: int):
                         msg = await bot.send_poll(**poll_kwargs)
                     else:
                         raise e
-
             # ==========================================
-            # 2. DIRECT FAST NATIVE FALLBACK (For Long Options, Statements, Math & Tables)
+            # 2. DIRECT FAST NATIVE FALLBACK (Using Bot API 10.2+ sendRichMessage)
             # ==========================================
             else:
                 processed_text = raw_question_text.replace("▪️", "\n\n")
                 processed_text = re.sub(r'\s+([A-D]\)|\([A-D]\))', r'\n\1', processed_text)
 
-                safe_q_text = html.escape(processed_text)
-          
-                safe_q_text = safe_q_text.replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>")
-                safe_q_text = safe_q_text.replace("&lt;i&gt;", "<i>").replace("&lt;/i&gt;", "</i>")
-                safe_q_text = safe_q_text.replace("&lt;u&gt;", "<u>").replace("&lt;/u&gt;", "</u>")
+                def prepare_rich_html(raw_str: str) -> str:
+                    safe_txt = html.escape(str(raw_str))
+                    # Allowed Rich HTML tags को वापस अन-एस्केप करें
+                    allowed_tags = [
+                        "b", "i", "u", "s", "code", "pre", "blockquote",
+                        "tg-math-block", "h1", "h2", "h3", "tr", "td", "th", "table", "details"
+                    ]
+                    for tag in allowed_tags:
+                        safe_txt = re.sub(rf'&lt;{tag}(\s+.*?)?&gt;', rf'<{tag}\1>', safe_txt, flags=re.IGNORECASE)
+                        safe_txt = re.sub(rf'&lt;/{tag}&gt;', f'</{tag}>', safe_txt, flags=re.IGNORECASE)
+                    return safe_txt
 
-                safe_q_text = safe_q_text.replace("&lt;tg-math-block&gt;", "<tg-math-block>")
-                safe_q_text = safe_q_text.replace("&lt;/tg-math-block&gt;", "</tg-math-block>")
-                safe_q_text = safe_q_text.replace("&lt;table", "<table").replace("&lt;/table&gt;", "</table>")
-                safe_q_text = safe_q_text.replace("&lt;tr&gt;", "<tr>").replace("&lt;/tr&gt;", "</tr>")
-                safe_q_text = safe_q_text.replace("&lt;td&gt;", "<td>").replace("&lt;/td&gt;", "</td>")
-                safe_q_text = safe_q_text.replace("&lt;th&gt;", "<th>").replace("&lt;/th&gt;", "</th>")
+                safe_q_text = prepare_rich_html(processed_text)
 
                 extracted_url = None
                 if final_explanation:
@@ -753,26 +753,43 @@ async def send_next_poll(bot: Bot, chat_id: int):
                 labels = ["A", "B", "C", "D", "E", "F", "G", "H"]
                 
                 if opt_exceeds or is_complex:
-                    fallback_text += "\n\n"
+                    fallback_text += "<br><br>"
                     for i, opt in enumerate(original_options):
                         lbl = labels[i] if i < len(labels) else str(i+1)
-                        safe_opt = html.escape(str(opt))
-                        
-                        safe_opt = safe_opt.replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>")
-                        safe_opt = safe_opt.replace("&lt;i&gt;", "<i>").replace("&lt;/i&gt;", "</i>")
-                        safe_opt = safe_opt.replace("&lt;tg-math-block&gt;", "<tg-math-block>").replace("&lt;/tg-math-block&gt;", "</tg-math-block>")
-                        
-                        fallback_text += f"<b>{lbl})</b> {safe_opt}\n"
+                        safe_opt = prepare_rich_html(opt)
+                        fallback_text += f"<b>{lbl})</b> {safe_opt}<br>"
                         poll_options.append(f"Option {lbl}")
                 else:
                     poll_options = original_options
 
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text=fallback_text,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True 
-                )
+                # 🟢 NATIVE RICH MESSAGE API (Supports <tg-math-block>, <table>, etc.)
+                try:
+                    # तरीका 1: अगर aiogram लेटेस्ट (3.29+) है
+                    from aiogram.types import InputRichMessage
+                    await bot.send_rich_message(
+                        chat_id=chat_id,
+                        rich_message=InputRichMessage(
+                            html=fallback_text,
+                            skip_entity_detection=True
+                        )
+                    )
+                except (ImportError, AttributeError):
+                    # तरीका 2: अगर आपके सर्वर पर पुराना aiogram है, तो बिना अपडेट किए सीधा Raw API Call मारेगा!
+                    import aiohttp
+                    api_url = f"https://api.telegram.org/bot{bot.token}/sendRichMessage"
+                    payload = {
+                        "chat_id": chat_id,
+                        "rich_message": {
+                            "html": fallback_text,
+                            "skip_entity_detection": True
+                        }
+                    }
+                    async with aiohttp.ClientSession() as http_session:
+                        async with http_session.post(api_url, json=payload) as resp:
+                            res_data = await resp.json()
+                            if not res_data.get("ok"):
+                                raise Exception(f"sendRichMessage failed: {res_data.get('description')}")
+
                 msg = await bot.send_poll(
                     chat_id=chat_id,
                     question=poll_question,
@@ -783,6 +800,8 @@ async def send_next_poll(bot: Bot, chat_id: int):
                     is_anonymous=False,
                     open_period=session["timer"]
                 )
+
+            
             
             # --- 🟢 Update Session Data immediately ---
             now_ts = datetime.utcnow().timestamp()
