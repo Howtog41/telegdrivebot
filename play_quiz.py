@@ -185,6 +185,7 @@ async def start_command_handler(message: Message, command: CommandObject, bot: B
                     [InlineKeyboardButton(text="📚 Open Library (Mini App)", web_app=web_app_btn)]
                 ])
         else:
+            # --- MAIN BOT LOGIC ---
             welcome_text = (
                 "👋 <b>Welcome to Advance MCQ Bot!</b>\n\n"
                 "I am a fast and advanced quiz management bot. I help Educators easily create, manage, and automate their quizzes.\n\n"
@@ -198,8 +199,8 @@ async def start_command_handler(message: Message, command: CommandObject, bot: B
             if is_new_user:
                 welcome_text += "\n\n🎁 <b>Bonus:</b> A <b>30-Day Free Trial</b> has been automatically activated for your account! Send /my_plan to check details."
             
+            # Main bot ke liye default buttons humesha dikhenge
             markup = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📚 Open Exam Library", web_app=web_app_btn)],
                 [InlineKeyboardButton(text="👨‍💻 Owner", url="https://t.me/lkd_ak"),
                  InlineKeyboardButton(text="📢 Updates Channel", url="https://t.me/How_To_Google")]
             ])
